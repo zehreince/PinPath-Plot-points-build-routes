@@ -1,101 +1,93 @@
-import React, { useEffect, useRef } from "react";
-import "ol/ol.css";
-import Map from "ol/Map";
-import View from "ol/View";
-import TileLayer from "ol/layer/Tile";
-import OSM from "ol/source/OSM";
-import { fromLonLat, toLonLat } from "ol/proj";
-import VectorLayer from "ol/layer/Vector";
-import VectorSource from "ol/source/Vector";
-import Feature from "ol/Feature";
-import Point from "ol/geom/Point";
-import { Style, Icon } from "ol/style";
-import pinIcon from "../assets/icon.svg";
+import React, { useEffect, useRef } from 'react';
+import 'ol/ol.css';
+import Map from 'ol/Map';
+import View from 'ol/View';
+import TileLayer from 'ol/layer/Tile';
+import OSM from 'ol/source/OSM';
+import VectorLayer from 'ol/layer/Vector';
+import VectorSource from 'ol/source/Vector';
+import Feature from 'ol/Feature';
+import Point from 'ol/geom/Point';
+import { fromLonLat, toLonLat } from 'ol/proj';
+import { Style, Icon } from 'ol/style';
 
-function MapComponent({ onAddPoint }) {
+function MapComponent({ points, onAddPoint, targetLocation }) {
+  const mapRef = useRef();
+  const mapInstance = useRef(null);
+  const vectorSourceRef = useRef(new VectorSource());
 
-  const mapElement = useRef(null);
-  const mapRef = useRef(null);
-  const vectorSourceRef = useRef(null);
+  // ÇÖZÜM: onAddPoint fonksiyonunun her zaman en güncel halini tutmak için bir referans oluşturuyoruz.
+  // Bu sayede haritayı silip baştan yaratmamıza gerek kalmayacak.
+  const onAddPointRef = useRef(onAddPoint);
+  useEffect(() => {
+    onAddPointRef.current = onAddPoint;
+  }, [onAddPoint]);
 
   useEffect(() => {
-
-    if (!mapElement.current || mapRef.current) return;
-
-    const source = new VectorSource();
-    vectorSourceRef.current = source;
+    if (mapInstance.current || !mapRef.current) return;
 
     const vectorLayer = new VectorLayer({
-      source: source
+      source: vectorSourceRef.current,
+      style: new Style({
+        image: new Icon({
+          anchor: [0.5, 1],
+          src: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+          scale: 0.06,
+        }),
+      }),
     });
 
     const map = new Map({
-      target: mapElement.current,
-      layers: [
-        new TileLayer({ source: new OSM() }),
-        vectorLayer
-      ],
-      view: new View({
-        center: fromLonLat([27.9700, 40.3522]),
-        zoom: 13
-      })
+      target: mapRef.current,
+      layers: [new TileLayer({ source: new OSM() }), vectorLayer],
+      view: new View({ 
+        center: fromLonLat([34.0, 39.0]),
+        zoom: 6 
+      }),
     });
 
-    map.on("singleclick", (event) => {
-
-      const coords = toLonLat(event.coordinate);
-
-      const feature = new Feature({
-        geometry: new Point(event.coordinate)
-      });
-
-      source.addFeature(feature);
-
-      // animasyon
-      let scale = 0;
-
-      const animate = () => {
-
-        scale += 0.08;
-
-        feature.setStyle(
-          new Style({
-            image: new Icon({
-              src: pinIcon,
-              anchor: [0.5, 1],
-              scale: scale
-            })
-          })
-        );
-
-        if (scale < 1) {
-          requestAnimationFrame(animate);
-        }
-      };
-
-      animate();
-
-      onAddPoint({
-        lat: coords[1],
-        lng: coords[0]
-      });
-
+    map.on('click', (event) => {
+      const lonLat = toLonLat(event.coordinate);
+      // Doğrudan prop yerine güncel ref'i kullanıyoruz
+      onAddPointRef.current({ lat: lonLat[1], lng: lonLat[0] });
     });
 
-    mapRef.current = map;
+    mapInstance.current = map;
+    
+    setTimeout(() => {
+      map.updateSize();
+    }, 100);
 
     return () => {
       map.setTarget(null);
-      mapRef.current = null;
-    };
+      mapInstance.current = null;
+    }
+  }, []); // EN ÖNEMLİ DEĞİŞİKLİK: Burayı boş bıraktık. Harita sadece ilk açılışta render edilecek.
 
-  }, []);
+  useEffect(() => {
+    if (vectorSourceRef.current) {
+      vectorSourceRef.current.clear();
+      points.forEach((p) => {
+        const feature = new Feature({
+          geometry: new Point(fromLonLat([p.lng, p.lat])),
+        });
+        vectorSourceRef.current.addFeature(feature);
+      });
+    }
+  }, [points]);
 
-  return (
-    <div className="relative w-full h-full">
-      <div ref={mapElement} className="absolute inset-0"></div>
-    </div>
-  );
+  useEffect(() => {
+    if (targetLocation && mapInstance.current) {
+      const view = mapInstance.current.getView();
+      view.animate({
+        center: fromLonLat([targetLocation.lng, targetLocation.lat]),
+        zoom: 12,
+        duration: 1000
+      });
+    }
+  }, [targetLocation]);
+
+  return <div ref={mapRef} className="w-full h-full bg-gray-200" style={{ minHeight: '100vh' }} />;
 }
 
 export default MapComponent;
