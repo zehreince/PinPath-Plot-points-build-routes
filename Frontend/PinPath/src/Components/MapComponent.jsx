@@ -9,15 +9,14 @@ import VectorSource from 'ol/source/Vector';
 import Feature from 'ol/Feature';
 import Point from 'ol/geom/Point';
 import { fromLonLat, toLonLat } from 'ol/proj';
-import { Style, Icon } from 'ol/style';
+import { Style, Icon, Stroke } from 'ol/style';
+import GeoJSON from 'ol/format/GeoJSON';
 
-function MapComponent({ points, onAddPoint, targetLocation }) {
+function MapComponent({ points, onAddPoint, targetLocation, routeGeoJson }) {
   const mapRef = useRef();
   const mapInstance = useRef(null);
   const vectorSourceRef = useRef(new VectorSource());
 
-  // ÇÖZÜM: onAddPoint fonksiyonunun her zaman en güncel halini tutmak için bir referans oluşturuyoruz.
-  // Bu sayede haritayı silip baştan yaratmamıza gerek kalmayacak.
   const onAddPointRef = useRef(onAddPoint);
   useEffect(() => {
     onAddPointRef.current = onAddPoint;
@@ -48,7 +47,6 @@ function MapComponent({ points, onAddPoint, targetLocation }) {
 
     map.on('click', (event) => {
       const lonLat = toLonLat(event.coordinate);
-      // Doğrudan prop yerine güncel ref'i kullanıyoruz
       onAddPointRef.current({ lat: lonLat[1], lng: lonLat[0] });
     });
 
@@ -62,11 +60,36 @@ function MapComponent({ points, onAddPoint, targetLocation }) {
       map.setTarget(null);
       mapInstance.current = null;
     }
-  }, []); // EN ÖNEMLİ DEĞİŞİKLİK: Burayı boş bıraktık. Harita sadece ilk açılışta render edilecek.
+  }, []); 
 
   useEffect(() => {
     if (vectorSourceRef.current) {
-      vectorSourceRef.current.clear();
+      vectorSourceRef.current.clear(); 
+
+      // OSRM'den gelen rota verisini çizgiye dönüştürüyoruz
+      if (routeGeoJson) {
+        const geojsonFormat = new GeoJSON();
+        const routeGeometry = geojsonFormat.readGeometry(routeGeoJson, {
+          dataProjection: 'EPSG:4326',
+          featureProjection: 'EPSG:3857'
+        });
+
+        const routeFeature = new Feature({
+          geometry: routeGeometry
+        });
+
+        routeFeature.setStyle(
+          new Style({
+            stroke: new Stroke({
+              color: '#2563eb', 
+              width: 5, 
+            }),
+          })
+        );
+        
+        vectorSourceRef.current.addFeature(routeFeature);
+      }
+
       points.forEach((p) => {
         const feature = new Feature({
           geometry: new Point(fromLonLat([p.lng, p.lat])),
@@ -74,7 +97,7 @@ function MapComponent({ points, onAddPoint, targetLocation }) {
         vectorSourceRef.current.addFeature(feature);
       });
     }
-  }, [points]);
+  }, [points, routeGeoJson]); 
 
   useEffect(() => {
     if (targetLocation && mapInstance.current) {
