@@ -29,10 +29,16 @@ PinPath, kullanıcıların harita üzerinde özgürce noktalar işaretleyerek ge
 ##  Kurulum ve Çalıştırma
 
 Projeyi kendi bilgisayarınızda çalıştırmak için aşağıdaki adımları izleyebilirsiniz.
-
+### Frontend'i Çalıştırma
+Yeni bir terminal sekmesi açın ve React uygulamasını başlatın:
+```
+cd Frontend/PinPath
+npm install
+npm run dev
+```
 ### Backend'i (C#) Çalıştırma
 Backend, coğrafi verileri işlemek için `http://localhost:5256` portunda çalışmalıdır.
-```bash
+```
 cd Backend/PinPathAPI
 dotnet restore
 dotnet run# 📍 PinPath
