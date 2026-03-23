@@ -41,5 +41,5 @@ Backend, coğrafi verileri işlemek için `http://localhost:5256` portunda çal�
 ```
 cd Backend/PinPathAPI
 dotnet restore
-dotnet run# 📍 PinPath
+dotnet run#  PinPath
 
